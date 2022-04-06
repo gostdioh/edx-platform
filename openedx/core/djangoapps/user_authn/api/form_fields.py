@@ -1,13 +1,62 @@
 """
 Field Descriptions
 """
+from django import forms
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.utils.translation import gettext as _
 
+from common.djangoapps.edxmako.shortcuts import marketing_link
 from common.djangoapps.student.models import UserProfile
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.user_api import accounts
 from openedx.core.djangoapps.user_authn.api.constants import SUPPORTED_FIELDS_TYPES
+from openedx.core.djangolib.markup import HTML, Text
+
+FIELD_TYPE_MAP = {
+    forms.CharField: "text",
+    forms.PasswordInput: "password",
+    forms.ChoiceField: "select",
+    forms.TypedChoiceField: "select",
+    forms.Textarea: "textarea",
+    forms.BooleanField: "checkbox",
+    forms.EmailField: "email",
+}
+
+
+def add_extension_form_field(field_name, custom_form, field_description, field_type='required'):
+    """
+    Returns Extension form field values
+    """
+    restrictions = {}
+    if field_type == 'required':
+        if getattr(field_description, 'max_length', None):
+            restrictions['max_length'] = field_description.max_length
+        if getattr(field_description, 'min_length', None):
+            restrictions['min_length'] = field_description.min_length
+
+    field_options = getattr(
+        getattr(custom_form, 'Meta', None), 'serialization_options', {}
+    ).get(field_name, {})
+    field_type = field_options.get('field_type', FIELD_TYPE_MAP.get(field_description.__class__))
+
+    if not field_type:
+        raise ImproperlyConfigured(
+            f'Field type {field_type} not recognized for registration extension field {field_name}.'
+        )
+
+    return {
+        'name': field_name,
+        'label': field_description.label,
+        'default': field_options.get('default'),
+        'placeholder': field_description.initial,
+        'instructions': field_description.help_text,
+        'options': getattr(field_description, 'choices', None),
+        'error_message': field_description.error_messages if field_type == 'required' else '',
+        'restrictions': restrictions,
+        'type': field_type,
+
+    }
 
 
 def _add_field_with_configurable_select_options(field_name, field_label, error_message=''):
@@ -163,3 +212,154 @@ def add_job_title_field():
     # user to input the Job Title
     job_title_label = _("Job Title")
     return _add_field_with_configurable_select_options('job_title', job_title_label)
+
+
+def add_first_name_field():
+    """
+    Returns the first name field description
+    """
+    # Translators: This label appears above a field which allows the
+    # user to input the First Name
+
+    first_name_label = _("First Name")
+
+    return {
+        'name': 'first_name',
+        'type': SUPPORTED_FIELDS_TYPES['TEXT'],
+        'label': first_name_label,
+        'error_message': accounts.REQUIRED_FIELD_FIRST_NAME_MSG,
+    }
+
+
+def add_last_name_field():
+    """
+    Returns the last name field description
+    """
+    # Translators: This label appears above a field which allows the
+    # user to input the Last Name
+
+    last_name_label = _("Last Name")
+
+    return {
+        'name': 'last_name',
+        'type': SUPPORTED_FIELDS_TYPES['TEXT'],
+        'label': last_name_label,
+        'error_message': accounts.REQUIRED_FIELD_LAST_NAME_MSG,
+    }
+
+
+def add_mailing_address_field():
+    """
+    Returns the mailing address field description
+    """
+    # Translators: This label appears above a field
+    # meant to hold the user's mailing address.
+    mailing_address_label = _("Mailing address")
+
+    return {
+        'name': 'mailing_address',
+        'type': SUPPORTED_FIELDS_TYPES['TEXTAREA'],
+        'label': mailing_address_label,
+        'error_message': accounts.REQUIRED_FIELD_MAILING_ADDRESS_MSG,
+    }
+
+
+def add_state_field():
+    """
+    Returns a State/Province/Region field to a description
+    """
+    # Translators: This label appears above a field
+    # which allows the user to input the State/Province/Region in which they live.
+    state_label = _("State/Province/Region")
+
+    return {
+        'name': 'state',
+        'type': SUPPORTED_FIELDS_TYPES['TEXT'],
+        'label': state_label,
+        'error_message': accounts.REQUIRED_FIELD_STATE_MSG,
+    }
+
+
+def add_city_field():
+    """
+    Returns a city field to a description
+    """
+    # Translators: This label appears above a field
+    # which allows the user to input the city in which they live.
+    city_label = _("City")
+
+    return {
+        'name': 'city',
+        'type': SUPPORTED_FIELDS_TYPES['TEXT'],
+        'label': city_label,
+        'error_message': accounts.REQUIRED_FIELD_CITY_MSG,
+    }
+
+
+def add_honor_code_field(separate_honor_and_tos):
+    """
+    Returns a honor code field to a description
+    """
+
+    # Separate terms of service and honor code checkboxes
+    if separate_honor_and_tos:
+        terms_label = _("Honor Code")
+        terms_link = marketing_link("HONOR")
+
+    # Combine terms of service and honor code checkboxes
+    else:
+        # Translators: This is a legal document users must agree to
+        # in order to register a new account.
+        terms_label = _("Terms of Service and Honor Code")
+        terms_link = marketing_link("HONOR")
+
+    # Translators: "Terms of Service" is a legal document users must agree to
+    # in order to register a new account.
+    label = Text(_(
+        "I agree to the {platform_name} {terms_of_service_link_start}{terms_of_service}{terms_of_service_link_end}"
+    )).format(
+        platform_name=configuration_helpers.get_value("PLATFORM_NAME", settings.PLATFORM_NAME),
+        terms_of_service=terms_label,
+        terms_of_service_link_start=HTML("<a href='{terms_link}' rel='noopener' target='_blank'>").format(
+            terms_link=terms_link
+        ),
+        terms_of_service_link_end=HTML("</a>"),
+    )
+
+    # Translators: "Terms of Service" is a legal document users must agree to
+    # in order to register a new account.
+    error_msg = _("You must agree to the {platform_name} {terms_of_service}").format(
+        platform_name=configuration_helpers.get_value("PLATFORM_NAME", settings.PLATFORM_NAME),
+        terms_of_service=terms_label
+    )
+    field_type = 'CHECKBOX'
+
+    if not separate_honor_and_tos:
+        field_type = 'TEXT'
+
+        pp_link = marketing_link("PRIVACY")
+        label = Text(_(
+            "By creating an account, you agree to the \
+              {terms_of_service_link_start}{terms_of_service}{terms_of_service_link_end} \
+              and you acknowledge that {platform_name} and each Member process your personal data in accordance \
+              with the {privacy_policy_link_start}Privacy Policy{privacy_policy_link_end}."
+        )).format(
+            platform_name=configuration_helpers.get_value("PLATFORM_NAME", settings.PLATFORM_NAME),
+            terms_of_service=terms_label,
+            terms_of_service_link_start=HTML("<a href='{terms_url}' rel='noopener' target='_blank'>").format(
+                terms_url=terms_link
+            ),
+            terms_of_service_link_end=HTML("</a>"),
+            privacy_policy_link_start=HTML("<a href='{pp_url}' rel='noopener' target='_blank'>").format(
+                pp_url=pp_link
+            ),
+            privacy_policy_link_end=HTML("</a>"),
+        )
+
+    return {
+        'name': 'honor_code',
+        'type': SUPPORTED_FIELDS_TYPES[field_type],
+        'label': label,
+        'error_message': error_msg,
+        'default': False
+    }
