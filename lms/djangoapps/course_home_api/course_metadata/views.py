@@ -136,7 +136,7 @@ class CourseHomeMetadataView(RetrieveAPIView):
             'can_load_courseware': can_load_courseware,
             'celebrations': celebrations,
             'user_timezone': user_timezone,
-            'can_view_certificate': certificates_viewable_for_course(enrollment.course_overview),
+            'can_view_certificate': certificates_viewable_for_course(course),
         }
         context = self.get_serializer_context()
         context['course'] = course
