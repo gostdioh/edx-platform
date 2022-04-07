@@ -44,11 +44,8 @@ def register_model_LMS(model, package_name):
     """
     Registers Simple History for a Model inside LMS Only
     """
-
-    AUTH_FEATURES_KEY = 'ENABLE_THIRD_PARTY_AUTH'
-    AUTH_FEATURE_ENABLED = AUTH_FEATURES_KEY in settings.FEATURES
-
-    if AUTH_FEATURE_ENABLED:
+    is_third_party_auth_enabled = settings.FEATURES.get('ENABLE_THIRD_PARTY_AUTH')
+    if is_third_party_auth_enabled:
         register(model, app=package_name)
 
 register_model_LMS(UserSocialAuth, __package__)
