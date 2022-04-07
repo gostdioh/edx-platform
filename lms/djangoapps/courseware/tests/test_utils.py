@@ -11,7 +11,7 @@ from oauth2_provider.models import Application
 from requests.models import Response
 from rest_framework import status
 
-from common.djangoapps.student.tests.factories import TEST_PASSWORD, GlobalStaffFactory, UserFactory
+from common.djangoapps.student.tests.factories import GlobalStaffFactory, UserFactory
 from lms.djangoapps.courseware.tests.factories import FinancialAssistanceConfigurationFactory
 from lms.djangoapps.courseware.utils import (
     create_financial_assistance_application,
@@ -50,7 +50,7 @@ class TestFinancialAssistanceViews(TestCase):
         """
         mock_response = Response()
         mock_response.status_code = status_code
-        mock_response._content = json.dumps(content).encode('utf-8')
+        mock_response._content = json.dumps(content).encode('utf-8')  # pylint: disable=protected-access
         return mock_response
 
     @ddt.data(
